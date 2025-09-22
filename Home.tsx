@@ -5,18 +5,26 @@
 /* tslint:disable */
 import {Content, GoogleGenAI, Modality} from '@google/genai';
 import {
+  Palette,
   ChevronDown,
   Copy,
   LoaderCircle,
   Redo2,
   SendHorizontal,
-  Trash2,
   Undo2,
   X,
+  Eraser,
 } from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 
-const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
+const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+
+const themes = [
+  {id: 'light', name: 'Light'},
+  {id: 'dark', name: 'Dark'},
+  {id: 'midnight', name: 'Midnight'},
+  {id: 'latte', name: 'Latte'},
+];
 
 function parseError(error: string) {
   const regex = /{"error":(.*)}/gm;
@@ -51,6 +59,19 @@ export default function Home() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [cursorPosition, setCursorPosition] = useState({x: 0, y: 0});
   const [isCursorVisible, setIsCursorVisible] = useState(false);
+  const [theme, setTheme] = useState('latte');
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+
+  // Theme management
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'latte';
+    setTheme(savedTheme);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   // Load background image when generatedImage changes
   useEffect(() => {
@@ -441,7 +462,7 @@ export default function Home() {
     <>
       {isCursorVisible && (
         <div
-          className="pointer-events-none fixed rounded-full border border-gray-500"
+          className="cursor-preview pointer-events-none fixed rounded-full border"
           style={{
             width: `${lineWidth}px`,
             height: `${lineWidth}px`,
@@ -451,7 +472,35 @@ export default function Home() {
           }}
         />
       )}
-      <div className="min-h-screen notebook-paper-bg text-gray-900 flex flex-col justify-start items-center">
+      <div className="app-container min-h-screen flex flex-col justify-start items-center">
+        {/* Theme Switcher */}
+        <div className="fixed top-4 right-4 z-50">
+          <button
+            onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+            className="theme-switcher-button flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-transform hover:scale-110"
+            aria-label="Toggle theme menu">
+            <Palette className="w-5 h-5" />
+          </button>
+          {isThemeMenuOpen && (
+            <ul
+              className="theme-menu absolute right-0 mt-2 w-36 rounded-lg shadow-xl py-1"
+              onMouseLeave={() => setIsThemeMenuOpen(false)}>
+              {themes.map((t) => (
+                <li key={t.id}>
+                  <button
+                    onClick={() => {
+                      setTheme(t.id);
+                      setIsThemeMenuOpen(false);
+                    }}
+                    className="theme-menu-item w-full text-left px-4 py-2 text-sm transition-colors">
+                    {t.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <main className="container mx-auto px-3 sm:px-6 py-5 sm:py-10 pb-32 max-w-5xl w-full">
           {/* Header section with title and tools */}
           <div className="flex flex-col mb-4 sm:mb-6 gap-4">
@@ -461,28 +510,25 @@ export default function Home() {
               </h1>
             </div>
 
-            <menu className="flex flex-wrap items-center justify-center bg-gray-300 rounded-xl p-2 shadow-sm gap-2 w-full">
+            <menu className="tools-menu flex flex-wrap items-center justify-center rounded-xl p-2 shadow-sm gap-2 w-full">
               <div className="relative" title="Select Gemini Model">
                 <select
                   value={selectedModel}
                   onChange={(e) => setSelectedModel(e.target.value)}
-                  className="h-10 rounded-full bg-white pl-3 pr-8 text-sm text-gray-700 shadow-sm transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 appearance-none border-2 border-white"
+                  className="tool-select h-10 rounded-full pl-3 pr-8 text-sm shadow-sm transition-all focus:outline-none focus:ring-2"
                   aria-label="Select Gemini Model">
                   <option value="gemini-2.5-flash-image-preview">
                     2.5 Flash
                   </option>
-                  <option value="gemini-2.0-flash-preview-image-generation">
-                    2.0 Flash
-                  </option>
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                <div className="tool-select-icon pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
                   <ChevronDown className="w-5 h-5" />
                 </div>
               </div>
 
               {/* Line Width Slider */}
               <div
-                className="flex items-center bg-white rounded-full h-10 px-3 shadow-sm border-2 border-white"
+                className="slider-container flex items-center rounded-full h-10 px-3 shadow-sm"
                 title="Adjust Brush Size">
                 <label htmlFor="lineWidth" className="sr-only">
                   Line Width
@@ -497,7 +543,7 @@ export default function Home() {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="text-gray-600">
+                  className="">
                   <path d="M12 20h9" />
                   <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
                 </svg>
@@ -508,22 +554,22 @@ export default function Home() {
                   max="50"
                   value={lineWidth}
                   onChange={(e) => setLineWidth(Number(e.target.value))}
-                  className="w-20 sm:w-24 mx-2 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-700"
+                  className="slider-thumb w-20 sm:w-24 mx-2 h-1.5 rounded-lg appearance-none cursor-pointer"
                   aria-label="Select line width"
                 />
-                <span className="text-sm text-gray-700 font-mono w-8 text-center">
+                <span className="font-mono w-8 text-center text-sm">
                   {lineWidth}px
                 </span>
               </div>
 
               {/* Similarity Slider */}
               <div
-                className="flex items-center bg-white rounded-full h-10 px-3 shadow-sm border-2 border-white"
+                className="slider-container flex items-center rounded-full h-10 px-3 shadow-sm"
                 title="Adjust AI Similarity">
                 <label htmlFor="similarity" className="sr-only">
                   Similarity
                 </label>
-                <Copy className="text-gray-600 w-5 h-5" aria-hidden="true" />
+                <Copy className="w-5 h-5" aria-hidden="true" />
                 <input
                   id="similarity"
                   type="range"
@@ -532,10 +578,10 @@ export default function Home() {
                   step="0.1"
                   value={similarity}
                   onChange={(e) => setSimilarity(Number(e.target.value))}
-                  className="w-20 sm:w-24 mx-2 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-700"
+                  className="slider-thumb w-20 sm:w-24 mx-2 h-1.5 rounded-lg appearance-none cursor-pointer"
                   aria-label="Select similarity level"
                 />
-                <span className="text-sm text-gray-700 font-mono w-8 text-center">
+                <span className="font-mono w-8 text-center text-sm">
                   {similarity.toFixed(1)}
                 </span>
               </div>
@@ -544,27 +590,27 @@ export default function Home() {
                 type="button"
                 onClick={handleUndo}
                 disabled={historyIndex <= 0}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm transition-all hover:bg-gray-50 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="tool-button w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 aria-label="Undo"
                 title="Undo Last Action">
-                <Undo2 className="w-5 h-5 text-gray-700" />
+                <Undo2 className="w-5 h-5" />
               </button>
               <button
                 type="button"
                 onClick={handleRedo}
                 disabled={historyIndex >= history.length - 1}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm transition-all hover:bg-gray-50 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="tool-button w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 aria-label="Redo"
                 title="Redo Last Action">
-                <Redo2 className="w-5 h-5 text-gray-700" />
+                <Redo2 className="w-5 h-5" />
               </button>
               <button
                 type="button"
-                className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border-2 border-white shadow-sm transition-transform hover:scale-110"
+                className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border-2 shadow-sm transition-transform hover:scale-110"
                 onClick={openColorPicker}
                 onKeyDown={handleKeyDown}
                 aria-label="Open color picker"
-                style={{backgroundColor: penColor}}
+                style={{backgroundColor: penColor, borderColor: 'var(--card)'}}
                 title="Select Brush Color">
                 <input
                   ref={colorInputRef}
@@ -578,12 +624,9 @@ export default function Home() {
               <button
                 type="button"
                 onClick={clearCanvas}
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm transition-all hover:bg-gray-50 hover:scale-110"
+                className="tool-button w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-all hover:scale-110"
                 title="Clear Canvas">
-                <Trash2
-                  className="w-5 h-5 text-gray-700"
-                  aria-label="Clear Canvas"
-                />
+                <Eraser className="w-5 h-5" aria-label="Clear Canvas" />
               </button>
             </menu>
           </div>
@@ -602,7 +645,7 @@ export default function Home() {
               onTouchStart={startDrawing}
               onTouchMove={draw}
               onTouchEnd={stopDrawing}
-              className="border-2 border-black w-full cursor-none sm:h-[60vh] h-[30vh] min-h-[320px] bg-white/90 touch-none"
+              className="canvas-element border-2 w-full cursor-none sm:h-[60vh] h-[30vh] min-h-[320px] touch-none"
             />
           </div>
 
@@ -614,13 +657,13 @@ export default function Home() {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Add your change..."
-                className="w-full p-3 sm:p-4 pr-12 sm:pr-14 text-sm sm:text-base border-2 border-black bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-gray-200 focus:outline-none transition-all font-mono"
+                className="prompt-input w-full p-3 sm:p-4 pr-12 sm:pr-14 text-sm sm:text-base border-2 shadow-sm focus:ring-2 focus:outline-none transition-all font-mono"
                 required
               />
               <button
                 type="submit"
                 disabled={isLoading}
-                className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 rounded-none bg-black text-white hover:cursor-pointer hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+                className="submit-button absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 rounded-none hover:cursor-pointer transition-colors">
                 {isLoading ? (
                   <LoaderCircle
                     className="w-5 sm:w-6 h-5 sm:h-6 animate-spin"
@@ -638,21 +681,19 @@ export default function Home() {
         </main>
         {/* Error Modal */}
         {showErrorModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50 p-4">
+            <div className="modal-card rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-bold text-gray-700">
+                <h3 className="modal-title text-xl font-bold">
                   Failed to generate
                 </h3>
                 <button
                   onClick={closeErrorModal}
-                  className="text-gray-400 hover:text-gray-500">
+                  className="modal-close-button">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <p className="font-medium text-gray-600">
-                {parseError(errorMessage)}
-              </p>
+              <p className="font-medium">{parseError(errorMessage)}</p>
             </div>
           </div>
         )}
